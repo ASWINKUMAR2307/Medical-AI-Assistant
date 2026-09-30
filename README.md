@@ -173,8 +173,6 @@ NEXT_PUBLIC_WORKSPACE_NAME="Dhaka Care Network"
 - **Forms**: React Hook Form
 - **Icons**: Lucide React
 
-## License
-
 MIT License - See LICENSE file for details
 
 ## Disclaimer
