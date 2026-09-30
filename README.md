@@ -172,9 +172,3 @@ NEXT_PUBLIC_WORKSPACE_NAME="Dhaka Care Network"
 - **Validation**: Zod
 - **Forms**: React Hook Form
 - **Icons**: Lucide React
-
-MIT License - See LICENSE file for details
-
-## Disclaimer
-
-This application uses **synthetic demo data only**. It is not HIPAA-certified, GDPR-compliant, or legally compliant for production healthcare use without implementing additional security and compliance controls.
