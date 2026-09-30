@@ -1,0 +1,324 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum UserRole {
+  ADMIN
+  DOCTOR
+  CLINICIAN
+  NURSE
+  CARE_COORDINATOR
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum TriagePriority {
+  URGENT
+  PRIORITY
+  STANDARD
+  SELF_CARE
+}
+
+enum TriageStatus {
+  PENDING
+  IN_REVIEW
+  APPROVED
+  OVERRIDDEN
+  RESOLVED
+}
+
+enum MedicalRecordType {
+  CONSULTATION
+  CLINICAL_NOTE
+  LAB_RESULT
+  MEDICATION
+  REFERRAL
+  DOCUMENT
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  passwordHash  String
+  role          UserRole  @default(CLINICIAN)
+  avatarUrl     String?
+  department    String?
+  specialization String?
+  licenseNumber String?
+  phone         String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  workspace     Workspace?     @relation(fields: [workspaceId], references: [id])
+  workspaceId   String?
+
+  doctorProfile       Doctor?         @relation("DoctorUser")
+  assignedAppointments Appointment[] @relation("DoctorAppointments")
+  createdAppointments  Appointment[] @relation("CreatedAppointments")
+  triageReviews        TriageReview[]
+  assignedTriageCases  TriageCase[]  @relation("AssignedTriageCases")
+  reviewedTriageCases  TriageCase[]  @relation("ReviewedTriageCases")
+  medicalRecords       MedicalRecord[] @relation("ClinicianRecords")
+  consultations        Consultation[] @relation("ConsultationDoctor")
+  notifications        Notification[]
+  auditLogs            AuditLog[]
+
+  @@index([email])
+  @@index([workspaceId])
+  @@index([role])
+}
+
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  address     String?
+  phone       String?
+  email       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  patients    Patient[]
+  doctors     Doctor[]
+  appointments Appointment[]
+  triageCases TriageCase[]
+
+  @@index([name])
+}
+
+model Patient {
+  id            String   @id @default(cuid())
+  patientId     String   @unique // Human-readable ID like PAT-001
+  firstName     String
+  lastName      String
+  dateOfBirth   DateTime
+  gender        String
+  phone         String?
+  email         String?
+  address       String?
+  emergencyContactName String?
+  emergencyContactPhone String?
+  bloodType     String?
+  allergies     String?
+  medicalHistory String?
+  status        String   @default("active") // active, inactive, discharged
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspace     Workspace   @relation(fields: [workspaceId], references: [id])
+  workspaceId   String
+
+  assignedDoctor Doctor?     @relation("AssignedPatients", fields: [assignedDoctorId], references: [id])
+  assignedDoctorId String?
+
+  appointments  Appointment[]
+  consultations Consultation[]
+  medicalRecords MedicalRecord[]
+  triageCases   TriageCase[]
+
+  @@index([patientId])
+  @@index([workspaceId])
+  @@index([lastName, firstName])
+  @@index([status])
+}
+
+model Doctor {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation("DoctorUser", fields: [userId], references: [id])
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id])
+  specialization String
+  licenseNumber String   @unique
+  availability  Boolean  @default(true)
+  maxAppointmentsPerDay Int @default(20)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  appointments  Appointment[]
+  patients      Patient[] @relation("AssignedPatients")
+
+  @@index([workspaceId])
+  @@index([userId])
+  @@index([availability])
+}
+
+model Appointment {
+  id            String           @id @default(cuid())
+  appointmentId String           @unique // Human-readable ID like APT-001
+  patientId     String
+  patient       Patient          @relation(fields: [patientId], references: [id])
+  doctorId      String
+  doctor        Doctor           @relation(fields: [doctorId], references: [id])
+  workspaceId   String
+  workspace     Workspace        @relation(fields: [workspaceId], references: [id])
+  scheduledAt   DateTime
+  duration      Int              @default(30) // minutes
+  status        AppointmentStatus @default(SCHEDULED)
+  notes         String?
+  reason        String?
+  createdById   String
+  createdBy     User             @relation("CreatedAppointments", fields: [createdById], references: [id])
+  assignedDoctorId String?
+  assignedDoctor  User?          @relation("DoctorAppointments", fields: [assignedDoctorId], references: [id])
+  consultation  Consultation?    @relation("ConsultationAppointment")
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([workspaceId])
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+model Consultation {
+  id            String   @id @default(cuid())
+  consultationId String  @unique // Human-readable ID like CON-001
+  patientId     String
+  patient       Patient  @relation(fields: [patientId], references: [id])
+  doctorId      String
+  doctor        User     @relation("ConsultationDoctor", fields: [doctorId], references: [id])
+  appointmentId String? @unique
+  appointment   Appointment? @relation("ConsultationAppointment", fields: [appointmentId], references: [id])
+  startedAt     DateTime
+  endedAt       DateTime?
+  chiefComplaint String
+  diagnosis     String?
+  treatmentPlan String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([startedAt])
+}
+
+model MedicalRecord {
+  id            String            @id @default(cuid())
+  recordId      String            @unique // Human-readable ID like REC-001
+  patientId     String
+  patient       Patient           @relation(fields: [patientId], references: [id])
+  clinicianId   String
+  clinician     User              @relation("ClinicianRecords", fields: [clinicianId], references: [id])
+  type          MedicalRecordType
+  title         String
+  description   String?
+  content       String            // JSON or text content
+  attachments   Json              @default("[]")
+  tags          Json              @default("[]")
+  isConfidential Boolean          @default(false)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([patientId])
+  @@index([clinicianId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model TriageCase {
+  id              String        @id @default(cuid())
+  caseId          String        @unique // Human-readable ID like TRI-001
+  patientId       String
+  patient         Patient       @relation(fields: [patientId], references: [id])
+  workspaceId     String
+  workspace       Workspace     @relation(fields: [workspaceId], references: [id])
+  submittedAt     DateTime      @default(now())
+  presentingConcern String
+  symptoms        Json          @default("[]")
+  vitalSigns      Json?         // JSON object with vital signs
+  aiAssessment    TriagePriority?
+  aiReasoning     String?
+  aiConfidence    Float?
+  riskIndicators  Json          @default("[]")
+  recommendedAction String?
+  status          TriageStatus  @default(PENDING)
+  assignedClinicianId String?
+  assignedClinician User?       @relation("AssignedTriageCases", fields: [assignedClinicianId], references: [id])
+  reviewedAt      DateTime?
+  reviewedById    String?
+  reviewedBy      User?         @relation("ReviewedTriageCases", fields: [reviewedById], references: [id])
+  clinicianNotes  String?
+  finalPriority   TriagePriority?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  reviews         TriageReview[]
+
+  @@index([patientId])
+  @@index([workspaceId])
+  @@index([status])
+  @@index([aiAssessment])
+  @@index([submittedAt])
+}
+
+model TriageReview {
+  id              String      @id @default(cuid())
+  triageCaseId    String
+  triageCase      TriageCase  @relation(fields: [triageCaseId], references: [id])
+  reviewerId      String
+  reviewer        User        @relation(fields: [reviewerId], references: [id])
+  action          String      // APPROVED, OVERRIDDEN, REQUEST_REVIEW, RESOLVED
+  previousPriority TriagePriority?
+  newPriority     TriagePriority?
+  notes           String?
+  createdAt       DateTime    @default(now())
+
+  @@index([triageCaseId])
+  @@index([reviewerId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String   // triage_urgent, appointment_reminder, review_required, etc.
+  title     String
+  message   String
+  entityId  String?
+  entityType String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorId     String
+  actor       User     @relation(fields: [actorId], references: [id])
+  action      String   // CREATE, UPDATE, DELETE, LOGIN, LOGOUT, REVIEW, OVERRIDE
+  entity      String   // Patient, Appointment, TriageCase, MedicalRecord, User
+  entityId    String
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([actorId])
+  @@index([entity])
+  @@index([entityId])
+  @@index([createdAt])
+  @@index([action])
+}

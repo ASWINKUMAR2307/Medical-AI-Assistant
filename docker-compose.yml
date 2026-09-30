@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mediassist-postgres
+    environment:
+      POSTGRES_USER: mediassist
+      POSTGRES_PASSWORD: mediassist_dev_password
+      POSTGRES_DB: mediassist_ai
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mediassist -d mediassist_ai"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Optional: AI Engine service (Python)
+  # ai-engine:
+  #   build: ./ai-engine
+  #   container_name: mediassist-ai-engine
+  #   environment:
+  #     - AI_PROVIDER=${AI_PROVIDER:-demo}
+  #     - GEMINI_API_KEY=${GEMINI_API_KEY}
+  #     - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+  #     - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
+  #   ports:
+  #     - "8000:8000"
+  #   depends_on:
+  #     - ollama
+
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: mediassist-ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+
+volumes:
+  postgres_data:
+  # ollama_data:
