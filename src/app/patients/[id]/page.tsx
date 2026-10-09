@@ -384,39 +384,43 @@ export default function PatientDetailPage() {
                   <CardTitle className="text-base">Upcoming Appointments</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  const upcomingAppointments = patient.appointments.filter(a => 
-                    ['SCHEDULED', 'CONFIRMED'].includes(a.status) && new Date(a.scheduledAt) > new Date()
-                  ).slice(0, 5)
-                  
-                  {upcomingAppointments.length === 0 ? (
-                    <p className="text-gray-500 text-center py-8">No upcoming appointments</p>
-                  ) : (
-                    <div className="space-y-4">
-                      {upcomingAppointments.map((appointment) => (
-                        <Link
-                          key={appointment.id}
-                          href={`/appointments/${appointment.id}`}
-                          className="block p-4 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-                        >
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1">
-                              <p className="font-medium text-gray-900">{appointment.reason || 'Appointment'}</p>
-                              <p className="text-sm text-gray-500 mt-1">
-                                {formatDateTime(appointment.scheduledAt)} • {appointment.duration} min
-                              </p>
-                              <p className="text-sm text-gray-600 mt-1">Dr. {appointment.doctorName}</p>
+                  {(() => {
+                    const upcomingAppointments = patient.appointments.filter(a => 
+                      ['SCHEDULED', 'CONFIRMED'].includes(a.status) && new Date(a.scheduledAt) > new Date()
+                    ).slice(0, 5)
+                    
+                    if (upcomingAppointments.length === 0) {
+                      return <p className="text-gray-500 text-center py-8">No upcoming appointments</p>
+                    }
+                    
+                    return (
+                      <div className="space-y-4">
+                        {upcomingAppointments.map((appointment) => (
+                          <Link
+                            key={appointment.id}
+                            href={`/appointments/${appointment.id}`}
+                            className="block p-4 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1">
+                                <p className="font-medium text-gray-900">{appointment.reason || 'Appointment'}</p>
+                                <p className="text-sm text-gray-500 mt-1">
+                                  {formatDateTime(appointment.scheduledAt)} • {appointment.duration} min
+                                </p>
+                                <p className="text-sm text-gray-600 mt-1">Dr. {appointment.doctorName}</p>
+                              </div>
+                              <span className={cn(
+                                'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
+                                getStatusColor(appointment.status.toLowerCase())
+                              )}>
+                                {appointment.status.charAt(0) + appointment.status.slice(1).toLowerCase()}
+                              </span>
                             </div>
-                            <span className={cn(
-                              'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                              getStatusColor(appointment.status.toLowerCase())
-                            )}>
-                              {appointment.status.charAt(0) + appointment.status.slice(1).toLowerCase()}
-                            </span>
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
+                          </Link>
+                        ))}
+                      </div>
+                    )
+                  })()}
                 </CardContent>
               </Card>
             </div>

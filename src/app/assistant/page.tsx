@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, KeyboardEvent } from 'react'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { Button } from '@/components/ui/Button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Send, Bot, User, RefreshCw, Copy, Check, Loader2, Sparkles, FileText, Mic, MicOff, Settings, Trash2, History, ArrowUpRight } from 'lucide-react'
+import { Send, Bot, User, RefreshCw, Copy, Loader2, Sparkles, FileText, Mic, MicOff, Settings, History } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import ReactMarkdown from 'react-markdown'
 
 interface Message {
   id: string
@@ -30,6 +30,22 @@ const quickActions: QuickAction[] = [
   { label: 'Treatment Planning', prompt: 'Suggest evidence-based treatment plan for...', icon: <Sparkles className="w-4 h-4" /> },
 ]
 
+const markdownComponents = {
+  strong: ({ children }: { children: React.ReactNode }) => <strong className="font-bold">{children}</strong>,
+  em: ({ children }: { children: React.ReactNode }) => <em className="italic">{children}</em>,
+  code: ({ children }: { children: React.ReactNode }) => <code className="bg-gray-200 px-1 py-0.5 rounded text-sm font-mono">{children}</code>,
+  pre: ({ children }: { children: React.ReactNode }) => <pre className="bg-gray-900 text-gray-100 p-3 rounded-lg overflow-x-auto"><code>{children}</code></pre>,
+  ul: ({ children }: { children: React.ReactNode }) => <ul className="list-disc list-inside space-y-1">{children}</ul>,
+  ol: ({ children }: { children: React.ReactNode }) => <ol className="list-decimal list-inside space-y-1">{children}</ol>,
+  li: ({ children }: { children: React.ReactNode }) => <li>{children}</li>,
+  h1: ({ children }: { children: React.ReactNode }) => <h1 className="text-xl font-bold mt-4 mb-2">{children}</h1>,
+  h2: ({ children }: { children: React.ReactNode }) => <h2 className="text-lg font-bold mt-3 mb-1">{children}</h2>,
+  h3: ({ children }: { children: React.ReactNode }) => <h3 className="text-base font-bold mt-2 mb-1">{children}</h3>,
+  p: ({ children }: { children: React.ReactNode }) => <p className="my-2">{children}</p>,
+  blockquote: ({ children }: { children: React.ReactNode }) => <blockquote className="border-l-4 border-blue-500 pl-4 italic text-gray-600 my-2">{children}</blockquote>,
+  hr: () => <hr className="border-gray-300 my-4" />,
+}
+
 export default function AssistantPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -43,8 +59,8 @@ export default function AssistantPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (e?: React.FormEvent | KeyboardEvent<HTMLTextAreaElement>) => {
+    e?.preventDefault()
     if (!input.trim() || isLoading) return
 
     const userMessage: Message = {
@@ -227,10 +243,15 @@ export default function AssistantPage() {
                       )}
                     >
                       <div className="prose prose-sm max-w-none">
-                        {message.role === 'assistant' && message.isStreaming ? (
-                          <span className="whitespace-pre-wrap">{message.content}<span className="animate-pulse">▌</span></span>
+                        {message.role === 'assistant' ? (
+                          <ReactMarkdown components={markdownComponents}>
+                            {message.content}
+                          </ReactMarkdown>
                         ) : (
                           <span className="whitespace-pre-wrap">{message.content}</span>
+                        )}
+                        {message.role === 'assistant' && message.isStreaming && (
+                          <span className="animate-pulse">▌</span>
                         )}
                       </div>
                       <div className={cn('flex items-center gap-2 mt-2 text-xs', message.role === 'user' ? 'text-blue-200' : 'text-gray-400')}>
@@ -260,7 +281,13 @@ export default function AssistantPage() {
                   ref={textareaRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask me anything about clinical decisions, diagnoses, treatments..."
+                  onKeyDown={(e: KeyboardEvent<HTMLTextAreaElement>) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleSubmit(e as unknown as React.FormEvent)
+                    }
+                  }}
+                  placeholder="Ask me anything about clinical decisions, diagnoses, treatments... (Press Enter to send, Shift+Enter for new line)"
                   className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none min-h-[50px] max-h-[150px]"
                   rows={1}
                   disabled={isLoading}
