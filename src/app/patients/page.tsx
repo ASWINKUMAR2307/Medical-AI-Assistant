@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Plus, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { usePermissions } from '@/hooks/usePermissions'
 
 interface Patient {
   id: string
@@ -25,6 +26,7 @@ interface Patient {
 export default function PatientsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { isDoctor, isAdmin } = usePermissions()
 
   const [patients, setPatients] = useState<Patient[]>([])
   const [total, setTotal] = useState(0)
@@ -98,20 +100,26 @@ export default function PatientsPage() {
     router.push(`/patients?${params.toString()}`)
   }
 
+  const canCreatePatients = isAdmin
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Patients</h1>
-            <p className="text-gray-500 mt-1">Manage patient records</p>
+            <p className="text-gray-500 mt-1">
+              {isDoctor ? 'Your assigned patients' : 'Manage patient records'}
+            </p>
           </div>
-          <Link href="/patients/new">
-            <Button>
-              <Plus className="w-4 h-4" />
-              New patient
-            </Button>
-          </Link>
+          {canCreatePatients && (
+            <Link href="/patients/new">
+              <Button>
+                <Plus className="w-4 h-4" />
+                New patient
+              </Button>
+            </Link>
+          )}
         </div>
 
         <PatientTable
@@ -124,6 +132,8 @@ export default function PatientsPage() {
           onSearchChange={handleSearchChange}
           onStatusChange={handleStatusChange}
           onPageChange={handlePageChange}
+          canEdit={isAdmin || isDoctor}
+          canDelete={isAdmin}
         />
       </div>
     </DashboardLayout>

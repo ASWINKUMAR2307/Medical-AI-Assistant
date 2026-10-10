@@ -5,10 +5,8 @@ import {
   Pie,
   Cell,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from 'recharts'
-import { cn } from '@/lib/utils'
 
 interface TriageDistributionChartProps {
   data: {
@@ -21,7 +19,6 @@ interface TriageDistributionChartProps {
 }
 
 const COLORS = ['#ef4444', '#f97316', '#3b82f6', '#10b981']
-const LABELS = ['Urgent review', 'Priority', 'Standard', 'Self-care info']
 
 export function TriageDistributionChart({ data }: TriageDistributionChartProps) {
   const chartData = [
@@ -33,6 +30,38 @@ export function TriageDistributionChart({ data }: TriageDistributionChartProps) 
 
   const hasData = chartData.some((d) => d.value > 0)
 
+  const renderCustomLabel = ({ cx, cy, midAngle, outerRadius, index }: {
+    cx: number
+    cy: number
+    midAngle: number
+    outerRadius: number
+    index: number
+  }) => {
+    if (!hasData) return null
+    
+    const entry = chartData[index]
+    const radius = outerRadius + 10
+    const x = cx + radius * Math.cos(-midAngle * Math.PI / 180)
+    const y = cy + radius * Math.sin(-midAngle * Math.PI / 180)
+    
+    const isLeft = x < cx
+    const textAnchor = isLeft ? 'end' : 'start'
+    
+    return (
+      <text
+        x={x}
+        y={y}
+        textAnchor={textAnchor}
+        dominantBaseline="middle"
+        className="text-xs font-medium fill-gray-700"
+        style={{ pointerEvents: 'none' }}
+      >
+        <tspan x={x} dy="-0.6em">{entry.name}</tspan>
+        <tspan x={x} dy="1.2em">{entry.percentage}%</tspan>
+      </text>
+    )
+  }
+
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
       <div className="flex items-start justify-between mb-4">
@@ -43,7 +72,7 @@ export function TriageDistributionChart({ data }: TriageDistributionChartProps) 
       </div>
 
       <div className="flex items-center justify-between">
-        <div className="relative w-64 h-64">
+        <div className="relative w-72 h-72">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -55,8 +84,12 @@ export function TriageDistributionChart({ data }: TriageDistributionChartProps) 
                 paddingAngle={2}
                 dataKey="value"
                 nameKey="name"
-                label={({ name, percentage }) => `${name} ${percentage}%`}
-                labelLine={false}
+                label={renderCustomLabel}
+                labelLine={{
+                  length: 15,
+                  stroke: '#9ca3af',
+                  strokeWidth: 1,
+                }}
               >
                 {hasData ? chartData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />

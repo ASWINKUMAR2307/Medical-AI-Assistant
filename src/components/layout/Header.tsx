@@ -22,6 +22,12 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [notifications, setNotifications] = useState([
+    { id: '1', title: 'Urgent triage review', message: '3 cases need immediate clinician review', time: '5 min ago', unread: true },
+    { id: '2', title: 'Appointment reminder', message: 'Dr. Rahman has 3 appointments in 30 minutes', time: '1 hour ago', unread: true },
+    { id: '3', title: 'New patient registered', message: 'PAT-016 Mohammad Hassan', time: '2 hours ago', unread: false },
+    { id: '4', title: 'Lab results available', message: 'CBC results for PAT-003 Abdul Karim', time: '4 hours ago', unread: false },
+  ])
   const userMenuRef = useRef<HTMLDivElement>(null)
   const notificationsRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLDivElement>(null)
@@ -40,18 +46,14 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const notifications = [
-    { id: '1', title: 'Urgent triage review', message: '3 cases need immediate clinician review', time: '5 min ago', unread: true },
-    { id: '2', title: 'Appointment reminder', message: 'Dr. Rahman has 3 appointments in 30 minutes', time: '1 hour ago', unread: true },
-    { id: '3', title: 'New patient registered', message: 'PAT-016 Mohammad Hassan', time: '2 hours ago', unread: false },
-    { id: '4', title: 'Lab results available', message: 'CBC results for PAT-003 Abdul Karim', time: '4 hours ago', unread: false },
-  ]
+  const handleMarkAllRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, unread: false })))
+  }
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (searchQuery.trim()) {
-      // Navigate to search results page
-      window.location.href = `/search?q=${encodeURIComponent(searchQuery.trim())}`
+      window.location.href = `/patients?search=${encodeURIComponent(searchQuery.trim())}`
     }
   }
 
@@ -101,7 +103,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
               <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50 animate-in fade-in-0 zoom-in-95">
                 <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
                   <h3 className="font-semibold text-gray-900">Notifications</h3>
-                  <button className="text-sm text-blue-600 hover:text-blue-700">Mark all read</button>
+                  <button onClick={handleMarkAllRead} className="text-sm text-blue-600 hover:text-blue-700">Mark all read</button>
                 </div>
                 <div className="max-h-96 overflow-y-auto">
                   {notifications.map((notification) => (

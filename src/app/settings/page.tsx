@@ -12,6 +12,7 @@ import {
   Users, Stethoscope, FileText, BarChart3, UserCheck, HelpCircle, LogOut,
   CreditCard, WifiOff, Zap, Lock, AlertTriangle, Archive, Clock, Calendar
 } from 'lucide-react'
+import { usePermissions } from '@/hooks/usePermissions'
 
 interface SettingsSection {
   id: string
@@ -366,9 +367,9 @@ const ClinicalTab = () => (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Default Consultation Duration</label>
-            <select className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            <select defaultValue="30" className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
               <option value="15">15 minutes</option>
-              <option value="30" selected>30 minutes</option>
+              <option value="30">30 minutes</option>
               <option value="45">45 minutes</option>
               <option value="60">60 minutes</option>
             </select>
@@ -417,19 +418,19 @@ const ClinicalTab = () => (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Default Duration</label>
-            <select className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            <select defaultValue="14" className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
               <option value="7">7 days</option>
-              <option value="14" selected>14 days</option>
+              <option value="14">14 days</option>
               <option value="30">30 days</option>
               <option value="90">90 days</option>
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Default Refills</label>
-            <select className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            <select defaultValue="2" className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
               <option value="0">No refills</option>
               <option value="1">1 refill</option>
-              <option value="2" selected>2 refills</option>
+              <option value="2">2 refills</option>
               <option value="3">3 refills</option>
             </select>
           </div>
@@ -621,6 +622,7 @@ const AdvancedTab = () => (
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('profile')
   const [saved, setSaved] = useState(false)
+  const { isAdmin, isDoctor, can } = usePermissions()
 
   const handleSave = () => {
     setSaved(true)
@@ -637,6 +639,18 @@ export default function SettingsPage() {
     billing: <BillingTab />,
     advanced: <AdvancedTab />,
   }
+
+  const availableTabs = tabs.filter((tab) => {
+    if (tab.id === 'billing' || tab.id === 'integrations' || tab.id === 'advanced') {
+      return isAdmin
+    }
+    if (tab.id === 'clinical') {
+      return isDoctor || isAdmin || can('settings:view')
+    }
+    return true
+  })
+
+  const validActiveTab = availableTabs.find((t) => t.id === activeTab) ? activeTab : availableTabs[0]?.id || 'profile'
 
   return (
     <DashboardLayout>
@@ -663,18 +677,18 @@ export default function SettingsPage() {
         <div className="flex flex-col lg:flex-row gap-6">
           <nav className="lg:w-52 flex-shrink-0" aria-label="Settings categories">
             <div className="bg-white rounded-xl border border-gray-200 p-2 space-y-1">
-              {tabs.map((tab) => (
+              {availableTabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
                     'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                    activeTab === tab.id
+                    validActiveTab === tab.id
                       ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600'
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   )}
                 >
-                  <span className={cn('flex-shrink-0', activeTab === tab.id ? 'text-blue-600' : 'text-gray-400')}>
+                  <span className={cn('flex-shrink-0', validActiveTab === tab.id ? 'text-blue-600' : 'text-gray-400')}>
                     {tab.icon}
                   </span>
                   {tab.label}
@@ -694,7 +708,7 @@ export default function SettingsPage() {
           </nav>
 
           <div className="flex-1 min-w-0">
-            {tabComponents[activeTab]}
+            {tabComponents[validActiveTab]}
           </div>
         </div>
       </div>

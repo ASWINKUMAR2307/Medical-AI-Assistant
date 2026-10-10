@@ -32,7 +32,7 @@ async function main() {
     update: {},
     create: {
       email: 'admin@mediassist.ai',
-      name: 'Ashik Kumar',
+      name: 'Aswin Kumar',
       passwordHash,
       role: UserRole.ADMIN,
       department: 'Administration',

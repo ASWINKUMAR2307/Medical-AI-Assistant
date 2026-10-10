@@ -2,11 +2,57 @@
 
 import { prisma } from '@/lib/db'
 import { TriagePriority, TriageStatus, AppointmentStatus } from '@/generated/prisma/client'
+import { auth } from '@/lib/auth'
 
-export async function getDashboardMetrics() {
+interface DashboardMetrics {
+  totalPatients: { value: number; change: number }
+  consultations: { value: number; change: number }
+  awaitingReview: { value: number; change: number }
+  activeDoctors: { value: number; total: number; percentage: number }
+  consultationActivity: { labels: string[]; consultations: number[]; completed: number[] }
+  triageDistribution: {
+    urgent: { value: number; percentage: number }
+    priority: { value: number; percentage: number }
+    standard: { value: number; percentage: number }
+    selfCare: { value: number; percentage: number }
+    totalAssessments: number
+  }
+  recentPatients: Array<{
+    id: string
+    patientId: string
+    name: string
+    age: number
+    lastConsultation: string | null
+    status: string
+    assignedDoctor: string
+  }>
+  myPatients?: number
+  myConsultations?: number
+}
+
+export async function getDashboardMetrics(): Promise<DashboardMetrics> {
+  const session = await auth()
+  const userId = session?.user?.id
+  const userRole = session?.user?.role
+
   const now = new Date()
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+  const isAdmin = userRole === 'ADMIN'
+  const isDoctor = userRole === 'DOCTOR'
+
+  let patientWhere: Record<string, any> = { status: 'active' }
+  let consultationWhere: Record<string, any> = { startedAt: { gte: sevenDaysAgo } }
+  let doctorWhere: Record<string, any> = { availability: true }
+
+  if (isDoctor && userId) {
+    const doctor = await prisma.doctor.findUnique({ where: { userId } })
+    if (doctor) {
+      patientWhere = { ...patientWhere, assignedDoctorId: doctor.id }
+      consultationWhere = { ...consultationWhere, doctorId: userId }
+    }
+  }
 
   const [
     totalPatients,
@@ -20,29 +66,28 @@ export async function getDashboardMetrics() {
     triageDistribution,
     recentPatients,
   ] = await Promise.all([
-    prisma.patient.count({ where: { status: 'active' } }),
+    prisma.patient.count({ where: patientWhere }),
     prisma.patient.count({
       where: {
-        status: 'active',
+        ...patientWhere,
         createdAt: { lt: thirtyDaysAgo },
       },
     }),
-    prisma.consultation.count({
-      where: { startedAt: { gte: sevenDaysAgo } },
-    }),
+    prisma.consultation.count({ where: consultationWhere }),
     prisma.consultation.count({
       where: {
+        ...consultationWhere,
         startedAt: { gte: new Date(sevenDaysAgo.getTime() - 7 * 24 * 60 * 60 * 1000), lt: sevenDaysAgo },
       },
     }),
     prisma.triageCase.count({
       where: { status: { in: [TriageStatus.PENDING, TriageStatus.IN_REVIEW] } },
     }),
-    prisma.doctor.count({ where: { availability: true } }),
+    prisma.doctor.count({ where: doctorWhere }),
     prisma.doctor.count(),
-    getConsultationActivity(),
+    getConsultationActivity(isDoctor ? userId : undefined),
     getTriageDistribution(),
-    getRecentPatients(),
+    getRecentPatients(isDoctor ? userId : undefined),
   ])
 
   const patientChange = totalPatientsPrev > 0
@@ -53,7 +98,7 @@ export async function getDashboardMetrics() {
     ? ((consultationsThisWeek - consultationsPrevWeek) / consultationsPrevWeek) * 100
     : 0
 
-  return {
+  const metrics: DashboardMetrics = {
     totalPatients: { value: totalPatients, change: Math.round(patientChange * 10) / 10 },
     consultations: { value: consultationsThisWeek, change: Math.round(consultationChange * 10) / 10 },
     awaitingReview: { value: awaitingReview, change: 0 },
@@ -62,9 +107,19 @@ export async function getDashboardMetrics() {
     triageDistribution,
     recentPatients,
   }
+
+  if (isDoctor) {
+    return {
+      ...metrics,
+      myPatients: totalPatients,
+      myConsultations: consultationsThisWeek,
+    }
+  }
+
+  return metrics
 }
 
-async function getConsultationActivity() {
+async function getConsultationActivity(doctorId?: string) {
   const now = new Date()
   const labels = []
   const consultationsData = []
@@ -79,13 +134,14 @@ async function getConsultationActivity() {
 
     labels.push(date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))
 
+    const where = { startedAt: { gte: date, lt: nextDate } }
+    if (doctorId) {
+      Object.assign(where, { doctorId })
+    }
+
     const [consultations, completed] = await Promise.all([
-      prisma.consultation.count({
-        where: { startedAt: { gte: date, lt: nextDate } },
-      }),
-      prisma.consultation.count({
-        where: { startedAt: { gte: date, lt: nextDate }, endedAt: { not: null } },
-      }),
+      prisma.consultation.count({ where }),
+      prisma.consultation.count({ where: { ...where, endedAt: { not: null } } }),
     ])
 
     consultationsData.push(consultations)
@@ -115,9 +171,15 @@ async function getTriageDistribution() {
   }
 }
 
-async function getRecentPatients() {
+async function getRecentPatients(doctorId?: string) {
+  const where: any = { status: 'active' }
+  if (doctorId) {
+    const doctor = await prisma.doctor.findUnique({ where: { userId: doctorId } })
+    if (doctor) where.assignedDoctorId = doctor.id
+  }
+
   const patients = await prisma.patient.findMany({
-    where: { status: 'active' },
+    where,
     include: {
       assignedDoctor: {
         include: { user: { select: { name: true } } },
@@ -137,7 +199,7 @@ async function getRecentPatients() {
     patientId: patient.patientId,
     name: `${patient.firstName} ${patient.lastName}`,
     age: calculateAge(patient.dateOfBirth),
-    lastConsultation: patient.consultations[0]?.startedAt || null,
+    lastConsultation: patient.consultations[0]?.startedAt?.toISOString() || null,
     status: patient.status,
     assignedDoctor: patient.assignedDoctor?.user?.name || 'Unassigned',
   }))

@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -18,23 +17,45 @@ import {
   ChevronLeft,
   ChevronRight,
   Building2,
-  ArrowRight,
+  UserCog,
+  Building,
+  Key,
 } from 'lucide-react'
+import { useSession } from 'next-auth/react'
+import { getAllowedRoutes } from '@/lib/permissions'
 
-const navigation = [
-  { name: 'Overview', href: '/overview', icon: LayoutDashboard },
-  { name: 'Patients', href: '/patients', icon: Users },
-  { name: 'Appointments', href: '/appointments', icon: Calendar },
-  { name: 'AI Triage', href: '/triage', icon: AlertTriangle },
-  { name: 'AI Assistant', href: '/assistant', icon: Bot },
-  { name: 'Medical Records', href: '/medical-records', icon: FileText },
-  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-  { name: 'Care Team', href: '/care-team', icon: UserCheck },
-  { name: 'Settings', href: '/settings', icon: Settings },
-]
+const navigationConfig = {
+  overview: { name: 'Overview', href: '/overview', icon: LayoutDashboard, permission: 'dashboard:view' },
+  patients: { name: 'Patients', href: '/patients', icon: Users, permission: 'patients:view' },
+  appointments: { name: 'Appointments', href: '/appointments', icon: Calendar, permission: 'appointments:view' },
+  triage: { name: 'AI Triage', href: '/triage', icon: AlertTriangle, permission: 'triage:view' },
+  assistant: { name: 'AI Assistant', href: '/assistant', icon: Bot, permission: 'assistant:view' },
+  medicalRecords: { name: 'Medical Records', href: '/medical-records', icon: FileText, permission: 'medical-records:view' },
+  analytics: { name: 'Analytics', href: '/analytics', icon: BarChart3, permission: 'analytics:view' },
+  careTeam: { name: 'Care Team', href: '/care-team', icon: UserCheck, permission: 'care-team:view' },
+  settings: { name: 'Settings', href: '/settings', icon: Settings, permission: 'settings:view' },
+}
+
+const adminOnlyNav = {
+  users: { name: 'User Management', href: '/admin/users', icon: UserCog, permission: 'users:view' },
+  auditLogs: { name: 'Audit Logs', href: '/admin/audit-logs', icon: Key, permission: 'audit-logs:view' },
+  systemSettings: { name: 'System Settings', href: '/admin/settings', icon: Building, permission: 'settings:admin' },
+}
 
 export function Sidebar({ isOpen, onToggle }: { isOpen: boolean; onToggle: () => void }) {
   const pathname = usePathname()
+  const { data: session } = useSession()
+  const userRole = session?.user?.role
+
+  const allowedRoutes = userRole ? getAllowedRoutes(userRole) : []
+
+  const navigation = Object.entries(navigationConfig)
+    .filter(([, config]) => allowedRoutes.includes(config.href))
+    .map(([key, config]) => ({ key, ...config }))
+
+  const adminNav = Object.entries(adminOnlyNav)
+    .filter(([, config]) => allowedRoutes.includes(config.href))
+    .map(([key, config]) => ({ key, ...config }))
 
   return (
     <>
@@ -73,11 +94,11 @@ export function Sidebar({ isOpen, onToggle }: { isOpen: boolean; onToggle: () =>
             <div className="px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
               WORKSPACE
             </div>
-            {navigation.map((item) => {
+            {navigation.slice(0, 5).map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
               return (
                 <Link
-                  key={item.name}
+                  key={item.key}
                   href={item.href}
                   className={cn(
                     'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150',
@@ -95,13 +116,13 @@ export function Sidebar({ isOpen, onToggle }: { isOpen: boolean; onToggle: () =>
 
             <div className="pt-4 mt-2 border-t border-slate-800" />
             <div className="px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              MANAGEMENT
+              CLINICAL
             </div>
-            {navigation.slice(6).map((item) => {
+            {navigation.slice(5).map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
               return (
                 <Link
-                  key={item.name}
+                  key={item.key}
                   href={item.href}
                   className={cn(
                     'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150',
@@ -116,6 +137,36 @@ export function Sidebar({ isOpen, onToggle }: { isOpen: boolean; onToggle: () =>
                 </Link>
               )
             })}
+
+            {adminNav.length > 0 && (
+              <>
+                <div className="pt-4 mt-2 border-t border-slate-800" />
+                <div className="px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  ADMINISTRATION
+                </div>
+                {adminNav.map((item) => {
+                  const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+                  return (
+                    <Link
+                      key={item.key}
+                      href={item.href}
+                      className={cn(
+                        'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150',
+                        isActive
+                          ? 'bg-purple-600/20 text-purple-300 border-l-3 border-purple-500'
+                          : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      )}
+                      aria-current={isActive ? 'page' : undefined}
+                    >
+                      <item.icon className={cn('w-5 h-5 flex-shrink-0', isActive ? 'text-purple-400' : 'text-slate-400')} />
+                      <span>{item.name}</span>
+                    </Link>
+                  )
+                })}
+              </>
+            )}
+
+            <div className="pt-4 mt-2 border-t border-slate-800" />
           </nav>
 
           <div className="p-3 border-t border-slate-800">
@@ -126,6 +177,12 @@ export function Sidebar({ isOpen, onToggle }: { isOpen: boolean; onToggle: () =>
                 <p className="text-xs text-slate-400">Visit the help center or contact your system administrator.</p>
               </div>
             </div>
+            {userRole && (
+              <div className="mt-3 p-2 rounded-lg bg-slate-800/30">
+                <p className="text-xs text-slate-400 uppercase tracking-wider">Your Role</p>
+                <p className="text-sm font-medium text-slate-100 capitalize">{userRole.toLowerCase().replace('_', ' ')}</p>
+              </div>
+            )}
           </div>
         </div>
       </aside>

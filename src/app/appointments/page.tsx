@@ -8,6 +8,7 @@ import { Plus, Search, Filter, ChevronLeft, ChevronRight, Calendar, Clock, User,
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { format, parseISO, isToday, isTomorrow, isPast, isFuture } from 'date-fns'
+import { usePermissions } from '@/hooks/usePermissions'
 
 interface Appointment {
   id: string
@@ -45,6 +46,7 @@ const statusIcons: Record<string, React.ReactNode> = {
 export default function AppointmentsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { isDoctor, isAdmin, can } = usePermissions()
 
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [total, setTotal] = useState(0)
@@ -55,6 +57,10 @@ export default function AppointmentsPage() {
   const [dateFilter, setDateFilter] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
+
+  const canCreateAppointments = isAdmin || isDoctor || can('appointments:create')
+  const canEditAppointments = isAdmin || can('appointments:edit')
+  const canViewOwnAppointments = can('appointments:view_own')
 
   const initialPage = parseInt(searchParams.get('page') || '1')
   const initialSearch = searchParams.get('search') || ''
@@ -169,12 +175,14 @@ export default function AppointmentsPage() {
               <Button variant="outline" size="sm" onClick={() => { setViewMode('list'); updateUrl(); }}>
                 List View
               </Button>
-              <Link href="/appointments/new">
-                <Button size="sm">
-                  <Plus className="w-4 h-4" />
-                  New appointment
-                </Button>
-              </Link>
+              {canCreateAppointments && (
+                <Link href="/appointments/new">
+                  <Button size="sm">
+                    <Plus className="w-4 h-4" />
+                    New appointment
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
 
@@ -223,19 +231,23 @@ export default function AppointmentsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Appointments</h1>
-            <p className="text-gray-500 mt-1">Manage and view appointments</p>
+            <p className="text-gray-500 mt-1">
+              {isDoctor ? 'Your scheduled appointments' : 'Manage and view appointments'}
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <Button variant="outline" size="sm" onClick={() => { setViewMode('calendar'); updateUrl(); }}>
               <Calendar className="w-4 h-4 mr-1" />
               Calendar
             </Button>
-            <Link href="/appointments/new">
-              <Button size="sm">
-                <Plus className="w-4 h-4" />
-                New appointment
-              </Button>
-            </Link>
+            {canCreateAppointments && (
+              <Link href="/appointments/new">
+                <Button size="sm">
+                  <Plus className="w-4 h-4" />
+                  New appointment
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -372,19 +384,23 @@ export default function AppointmentsPage() {
                                 >
                                   <Eye className="w-4 h-4" />
                                 </Link>
-                                <Link
-                                  href={`/appointments/${appointment.id}/edit`}
-                                  className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                                  title="Edit"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </Link>
-                                <button
-                                  className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                  title="More options"
-                                >
-                                  <MoreVertical className="w-4 h-4" />
-                                </button>
+                                {canEditAppointments && (
+                                  <Link
+                                    href={`/appointments/${appointment.id}/edit`}
+                                    className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                    title="Edit"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </Link>
+                                )}
+                                {canEditAppointments && (
+                                  <button
+                                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    title="More options"
+                                  >
+                                    <MoreVertical className="w-4 h-4" />
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>

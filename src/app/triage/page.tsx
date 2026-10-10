@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { format, parseISO } from 'date-fns'
 import { cn } from '@/lib/utils'
+import { usePermissions } from '@/hooks/usePermissions'
 
 interface TriageCase {
   id: string
@@ -65,6 +66,7 @@ const assessmentIcons: Record<string, React.ReactNode> = {
 export default function TriagePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { isDoctor, isAdmin, can } = usePermissions()
 
   const [cases, setCases] = useState<TriageCase[]>([])
   const [total, setTotal] = useState(0)
@@ -74,6 +76,10 @@ export default function TriagePage() {
   const [status, setStatus] = useState('')
   const [assessment, setAssessment] = useState('')
   const [isLoading, setIsLoading] = useState(true)
+
+  const canReviewTriage = isAdmin || isDoctor || can('triage:review')
+  const canOverrideTriage = isAdmin || can('triage:override')
+  const canViewAssignedTriage = can('triage:view_assigned')
 
   const initialPage = parseInt(searchParams.get('page') || '1')
   const initialSearch = searchParams.get('search') || ''
@@ -185,7 +191,9 @@ export default function TriagePage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">AI Triage</h1>
-            <p className="text-gray-500 mt-1">Review and manage AI-assessed triage cases</p>
+            <p className="text-gray-500 mt-1">
+              {isDoctor ? 'Review triage cases assigned to you' : 'Review and manage AI-assessed triage cases'}
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <Button variant="outline" size="sm" onClick={() => router.refresh()}>
@@ -409,12 +417,22 @@ export default function TriagePage() {
                                 >
                                   <Eye className="w-4 h-4" />
                                 </Link>
-                                <button
-                                  className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                                  title="Take action"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </button>
+                                {canReviewTriage && (
+                                  <button
+                                    className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                    title="Take action"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </button>
+                                )}
+                                {canOverrideTriage && (
+                                  <button
+                                    className="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                                    title="Override AI assessment"
+                                  >
+                                    <Brain className="w-4 h-4" />
+                                  </button>
+                                )}
                                 <button
                                   className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                   title="More options"

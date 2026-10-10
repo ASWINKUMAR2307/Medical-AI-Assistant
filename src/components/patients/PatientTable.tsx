@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { cn, formatDate, getStatusColor } from '@/lib/utils'
-import { Search, Filter, MoreVertical, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { Search, Filter, MoreVertical, ChevronLeft, ChevronRight, Plus, Edit, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Patient } from '@/actions/patients'
 
@@ -17,6 +17,8 @@ interface PatientTableProps {
   onSearchChange: (search: string) => void
   onStatusChange: (status: string) => void
   onPageChange: (page: number) => void
+  canEdit?: boolean
+  canDelete?: boolean
 }
 
 export function PatientTable({
@@ -29,6 +31,8 @@ export function PatientTable({
   onSearchChange,
   onStatusChange,
   onPageChange,
+  canEdit = true,
+  canDelete = true,
 }: PatientTableProps) {
   const [showFilters, setShowFilters] = useState(false)
 
@@ -162,6 +166,23 @@ export function PatientTable({
                       >
                         <MoreVertical className="w-4 h-4" />
                       </Link>
+                      {canEdit && (
+                        <Link
+                          href={`/patients/${patient.id}/edit`}
+                          className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"
+                          aria-label={`Edit ${patient.firstName} ${patient.lastName}`}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Link>
+                      )}
+                      {canDelete && (
+                        <button
+                          className="p-1.5 rounded-lg hover:bg-gray-100 text-red-500"
+                          aria-label={`Delete ${patient.firstName} ${patient.lastName}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
